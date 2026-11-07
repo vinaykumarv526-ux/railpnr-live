@@ -27,26 +27,8 @@ export default function HomePage() {
     setSearchError('');
 
     try {
-      // 1. Attempt API route first
-      let resolvedData: PnrData | null = null;
-      try {
-        const response = await fetch(`/api/pnr?pnr=${encodeURIComponent(pnr)}`);
-        if (response.ok) {
-          const resData: PnrApiResponse = await response.json();
-          if (resData.success && resData.data) {
-            resolvedData = resData.data;
-          }
-        }
-      } catch {
-        // API route unavailable, fallback below
-      }
-
-      // 2. Client-side resilience fallback
-      if (!resolvedData) {
-        resolvedData = await getPnrStatus(pnr);
-      }
-
-      setPnrData(resolvedData);
+      const data = await getPnrStatus(pnr);
+      setPnrData(data);
 
       // Scroll to results smoothly
       setTimeout(() => {
@@ -68,24 +50,8 @@ export default function HomePage() {
     if (!pnrData) return;
     setIsRefreshing(true);
     try {
-      let resolvedData: PnrData | null = null;
-      try {
-        const response = await fetch(`/api/pnr?pnr=${encodeURIComponent(pnrData.pnr)}`);
-        if (response.ok) {
-          const resData: PnrApiResponse = await response.json();
-          if (resData.success && resData.data) {
-            resolvedData = resData.data;
-          }
-        }
-      } catch {
-        // Fallback
-      }
-
-      if (!resolvedData) {
-        resolvedData = await getPnrStatus(pnrData.pnr);
-      }
-
-      setPnrData(resolvedData);
+      const data = await getPnrStatus(pnrData.pnr);
+      setPnrData(data);
     } catch {
       // Ignore
     } finally {
