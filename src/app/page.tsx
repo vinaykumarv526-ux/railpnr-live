@@ -11,6 +11,7 @@ import { SeoContent } from '@/components/SeoContent';
 import { AdPlaceholder } from '@/components/AdPlaceholder';
 import { Footer } from '@/components/Footer';
 import { PnrData, PnrApiResponse } from '@/types/pnr';
+import { getPnrStatus } from '@/lib/pnr-service';
 import { Sparkles, ShieldCheck, Zap } from 'lucide-react';
 
 export default function HomePage() {
@@ -26,24 +27,38 @@ export default function HomePage() {
     setSearchError('');
 
     try {
-      const response = await fetch(`/api/pnr?pnr=${encodeURIComponent(pnr)}`);
-      const resData: PnrApiResponse = await response.json();
-
-      if (!response.ok || !resData.success || !resData.data) {
-        setSearchError(resData.error || 'Unable to fetch PNR status. Please verify the 10-digit number.');
-        setPnrData(null);
-      } else {
-        setPnrData(resData.data);
-        // Scroll to results smoothly
-        setTimeout(() => {
-          const el = document.getElementById('pnr-result-section');
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // 1. Attempt API route first
+      let resolvedData: PnrData | null = null;
+      try {
+        const response = await fetch(`/api/pnr?pnr=${encodeURIComponent(pnr)}`);
+        if (response.ok) {
+          const resData: PnrApiResponse = await response.json();
+          if (resData.success && resData.data) {
+            resolvedData = resData.data;
           }
-        }, 100);
+        }
+      } catch {
+        // API route unavailable, fallback below
       }
-    } catch {
-      setSearchError('Connection error. Please check your internet connection and try again.');
+
+      // 2. Client-side resilience fallback
+      if (!resolvedData) {
+        resolvedData = await getPnrStatus(pnr);
+      }
+
+      setPnrData(resolvedData);
+
+      // Scroll to results smoothly
+      setTimeout(() => {
+        const el = document.getElementById('pnr-result-section');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unable to fetch PNR status';
+      setSearchError(msg);
+      setPnrData(null);
     } finally {
       setIsLoading(false);
     }
@@ -53,11 +68,24 @@ export default function HomePage() {
     if (!pnrData) return;
     setIsRefreshing(true);
     try {
-      const response = await fetch(`/api/pnr?pnr=${encodeURIComponent(pnrData.pnr)}`);
-      const resData: PnrApiResponse = await response.json();
-      if (resData.success && resData.data) {
-        setPnrData(resData.data);
+      let resolvedData: PnrData | null = null;
+      try {
+        const response = await fetch(`/api/pnr?pnr=${encodeURIComponent(pnrData.pnr)}`);
+        if (response.ok) {
+          const resData: PnrApiResponse = await response.json();
+          if (resData.success && resData.data) {
+            resolvedData = resData.data;
+          }
+        }
+      } catch {
+        // Fallback
       }
+
+      if (!resolvedData) {
+        resolvedData = await getPnrStatus(pnrData.pnr);
+      }
+
+      setPnrData(resolvedData);
     } catch {
       // Ignore
     } finally {
